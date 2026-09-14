@@ -56,7 +56,7 @@ const run = () => {
   const token = randomUUID()
   let finish
   const done = new Promise(resolve => { let settled = false; finish = () => { if (!settled) { settled = true; resolve() } }; active = { token, resolve: finish } })
-  const child = spawn(chromium, ['--headless=new', '--no-sandbox', '--no-zygote', '--single-process', '--disable-gpu', '--disable-dev-shm-usage', '--dump-dom', `http://127.0.0.1:${port}/run/${token}`], { stdio: 'ignore' })
+  const child = spawn(chromium, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--renderer-process-limit=1', '--dump-dom', `http://127.0.0.1:${port}/run/${token}`], { stdio: 'ignore' })
   const timer = setTimeout(() => { result.up = 0; finish() }, timeout)
   child.on('error', () => { result.up = 0; finish() })
   child.on('exit', () => { if (active) { result.up = 0; finish() } })
