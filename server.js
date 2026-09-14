@@ -11,7 +11,7 @@ const library = await readFile(new URL('./node_modules/@cloudflare/speedtest/dis
 let result = { up: 0 }
 let active
 
-const page = token => `<!doctype html><img src="/hold/${token}"><script type="module">import SpeedTest from '/speedtest.js';const send=body=>fetch('/result/${token}',{method:'POST',body:JSON.stringify(body)});const test=new SpeedTest({autoStart:false,logAimApiUrl:null,measurements:[['latency',20],['download',1e5,1,true],['download',1e6,3],['upload',1e5,3,true],['upload',1e6,3],['download',1e7,3],['upload',1e7,3],['download',5e7,2],['upload',25e6,2]].map(([type,a,count,bypassMinDuration])=>type==='latency'?{type,numPackets:a}:{type,bytes:a,count,bypassMinDuration})});test.onFinish=r=>send({result:r.getSummary()});test.onError=error=>send({error});test.play()</script>`
+const page = token => `<!doctype html><img src="/hold/${token}"><script type="module">import SpeedTest from '/speedtest.js';const send=body=>fetch('/result/${token}',{method:'POST',body:JSON.stringify(body)});const test=new SpeedTest({autoStart:false,logAimApiUrl:null,measurements:[['latency',20],['download',1e5,1,true],['download',1e6,3],['upload',1e5,3,true],['upload',1e6,3],['download',1e7,3],['upload',1e7,3],['download',25e6,2]].map(([type,a,count,bypassMinDuration])=>type==='latency'?{type,numPackets:a}:{type,bytes:a,count,bypassMinDuration})});test.onFinish=r=>send({result:r.getSummary()});test.onError=error=>send({error});test.play()</script>`
 
 const metrics = () => {
   const values = {
@@ -56,7 +56,7 @@ const run = () => {
   const token = randomUUID()
   let finish
   const done = new Promise(resolve => { let settled = false; finish = () => { if (!settled) { settled = true; resolve() } }; active = { token, resolve: finish } })
-  const child = spawn(chromium, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--dump-dom', `http://127.0.0.1:${port}/run/${token}`], { stdio: 'ignore' })
+  const child = spawn(chromium, ['--headless=new', '--no-sandbox', '--no-zygote', '--single-process', '--disable-gpu', '--disable-dev-shm-usage', '--dump-dom', `http://127.0.0.1:${port}/run/${token}`], { stdio: 'ignore' })
   const timer = setTimeout(() => { result.up = 0; finish() }, timeout)
   child.on('error', () => { result.up = 0; finish() })
   child.on('exit', () => { if (active) { result.up = 0; finish() } })
