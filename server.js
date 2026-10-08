@@ -11,7 +11,7 @@ const library = await readFile(new URL('./node_modules/@cloudflare/speedtest/dis
 let result = { up: 0 }
 let active
 
-const page = token => `<!doctype html><img src="/hold/${token}"><script type="module">import SpeedTest from '/speedtest.js';const send=body=>fetch('/result/${token}',{method:'POST',body:JSON.stringify(body)});const test=new SpeedTest({autoStart:false,logAimApiUrl:null,measurements:[['latency',20],['download',1e5,1,true],['download',1e6,3],['upload',1e5,3,true],['upload',1e6,3],['download',1e7,3],['upload',1e7,3],['download',25e6,2]].map(([type,a,count,bypassMinDuration])=>type==='latency'?{type,numPackets:a}:{type,bytes:a,count,bypassMinDuration})});test.onFinish=r=>send({result:r.getSummary()});test.onError=error=>send({error});test.play()</script>`
+const page = token => `<!doctype html><img src="/hold/${token}"><script type="module">import SpeedTest from '/speedtest.js';const send=body=>fetch('/result/${token}',{method:'POST',body:JSON.stringify(body)});const test=new SpeedTest({autoStart:false,logAimApiUrl:null,bandwidthAbortRequestDuration:30000,measurements:[['latency',20],['download',1e5,1,true],['download',1e6,3],['upload',1e5,3,true],['upload',1e6,3],['download',1e7,1],['upload',1e7,3]].map(([type,a,count,bypassMinDuration])=>type==='latency'?{type,numPackets:a}:{type,bytes:a,count,bypassMinDuration})});test.onFinish=r=>send({result:r.getSummary()});test.onError=error=>send({error});test.play()</script>`
 
 const metrics = () => {
   const values = {
@@ -40,7 +40,7 @@ const server = createServer(async (req, res) => {
     for await (const chunk of req) body += chunk
     const data = JSON.parse(body)
     if (data.result && ['download', 'upload', 'latency'].every(key => Number.isFinite(data.result[key]))) result = { attempt: result.attempt, ...data.result, up: 1, timestamp: Date.now() / 1000 }
-    else result.up = 0
+    else { result.up = 0; console.error('speedtest failed:', JSON.stringify(data.error ?? data)) }
     res.end()
     active.hold?.end()
     active.resolve()
@@ -57,7 +57,7 @@ const run = () => {
   let finish
   const done = new Promise(resolve => { let settled = false; finish = () => { if (!settled) { settled = true; resolve() } }; active = { token, resolve: finish } })
   const child = spawn(chromium, ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--renderer-process-limit=1', '--dump-dom', `http://127.0.0.1:${port}/run/${token}`], { stdio: 'ignore' })
-  const timer = setTimeout(() => { result.up = 0; finish() }, timeout)
+  const timer = setTimeout(() => { console.error('speedtest timed out'); result.up = 0; finish() }, timeout)
   child.on('error', () => { result.up = 0; finish() })
   child.on('exit', () => { if (active) { result.up = 0; finish() } })
   done.finally(() => { clearTimeout(timer); active.hold?.end(); child.kill(); active = undefined })
